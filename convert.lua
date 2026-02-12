@@ -21,45 +21,46 @@ end
 
 -- 2. Base64 Decode (Pure Lua, no bit library)
 local function base64_decode(data)
-    -- 1. 定义字符集
     local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    
-    -- 2. 建立反向映射表 (Base64 字符 -> 数值)
     local t = {}
-    for i = 1, #b do
-        t[b:sub(i, i)] = i - 1
+    for i = 1, #b do t[b:sub(i, i)] = i - 1 end
+
+    -- 1. 过滤非法字符
+    data = data:gsub('[^'..b..'=]', '')
+
+    -- 2. 重要：补齐缺损的等号 (Padding)
+    -- Base64 长度必须是 4 的倍数
+    local rem = #data % 4
+    if rem > 0 then
+        data = data .. string.rep('=', 4 - rem)
     end
 
-    -- 移除末尾的等号并进行预处理
-    data = data:gsub('[^'..b..'=]', '')
-    
-    local decode_func = function(x)
-        local n = #x
-        local r = 0
+    -- 3. 解码逻辑
+    local function decode_group(chunk)
+        local c1, c2, c3, c4 = chunk:sub(1,1), chunk:sub(2,2), chunk:sub(3,3), chunk:sub(4,4)
+        local v1, v2, v3, v4 = t[c1], t[c2], t[c3], t[c4]
         
-        -- 将 4 个字符转换为一个 24 位的整数
-        for i = 1, n do
-            local char = x:sub(i, i)
-            if char ~= '=' then
-                -- 模拟左移：r = r * 64 + val
-                r = r + t[char] * math.pow(64, n - i)
+        local res = ""
+        
+        -- 第一个字节：取 v1 全部 6 位 + v2 的高 2 位
+        local b1 = v1 * 4 + math.floor(v2 / 16)
+        res = res .. string.char(b1 % 256)
+
+        -- 第二个字节：取 v2 的低 4 位 + v3 的高 4 位
+        if c3 ~= '=' then
+            local b2 = (v2 % 16) * 16 + math.floor(v3 / 4)
+            res = res .. string.char(b2 % 256)
+            
+            -- 第三个字节：取 v3 的低 2 位 + v4 全部 6 位
+            if c4 ~= '=' then
+                local b3 = (v3 % 4) * 64 + v4
+                res = res .. string.char(b3 % 256)
             end
         end
-
-        -- 将 24 位整数拆分为 3 个 8 位字节
-        -- 字节 1: r / 2^16
-        -- 字节 2: (r / 2^8) % 2^8
-        -- 字节 3: r % 2^8
-        local res = ""
-        if n >= 2 then res = res .. string.char(math.floor(r / 65536)) end
-        if n >= 3 then res = res .. string.char(math.floor(r / 256) % 256) end
-        if n >= 4 then res = res .. string.char(r % 256) end
-        
         return res
     end
 
-    -- 3. 每 4 个字符一组进行处理
-    return (data:gsub('(....)', decode_func))
+    return (data:gsub('(....)', decode_group))
 end
 
 -- 3. Read subscription from temp file (from shell)
@@ -145,9 +146,7 @@ dns:
     fallback: ['https://doh-pure.onedns.net/dns-query', 'https://ada.openbld.net/dns-query', 'https://223.5.5.5/dns-query', 'https://223.6.6.6/dns-query']
     fallback-filter: { geoip: true, ipcidr: [240.0.0.0/4, 0.0.0.0/32] }
 proxies:
-${proxies_list}
-
-proxy-groups:
+${proxies_list}proxy-groups:
     - { name: 天路云, type: select, proxies: [自动选择, 故障转移, ${proxy_names_list}] }
     - { name: 自动选择, type: url-test, proxies: [${proxy_names_list}], url: 'http://www.gstatic.com/generate_204', interval: 86400 }
     - { name: 故障转移, type: fallback, proxies: [${proxy_names_list}], url: 'http://www.gstatic.com/generate_204', interval: 7200 }
@@ -744,7 +743,7 @@ local function main()
         os.exit(1)
     end
 
-    log("INFO", "✅ Parser executed successfully!")
+    log("INFO", "Parser executed successfully!")
     os.exit(0)
 end
 
