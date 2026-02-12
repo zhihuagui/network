@@ -25,33 +25,26 @@ local function base64_decode(data)
     local t = {}
     for i = 1, #b do t[b:sub(i, i)] = i - 1 end
 
-    -- 1. 过滤非法字符
     data = data:gsub('[^'..b..'=]', '')
 
-    -- 2. 重要：补齐缺损的等号 (Padding)
-    -- Base64 长度必须是 4 的倍数
     local rem = #data % 4
     if rem > 0 then
         data = data .. string.rep('=', 4 - rem)
     end
 
-    -- 3. 解码逻辑
     local function decode_group(chunk)
         local c1, c2, c3, c4 = chunk:sub(1,1), chunk:sub(2,2), chunk:sub(3,3), chunk:sub(4,4)
         local v1, v2, v3, v4 = t[c1], t[c2], t[c3], t[c4]
         
         local res = ""
         
-        -- 第一个字节：取 v1 全部 6 位 + v2 的高 2 位
         local b1 = v1 * 4 + math.floor(v2 / 16)
         res = res .. string.char(b1 % 256)
 
-        -- 第二个字节：取 v2 的低 4 位 + v3 的高 4 位
         if c3 ~= '=' then
             local b2 = (v2 % 16) * 16 + math.floor(v3 / 4)
             res = res .. string.char(b2 % 256)
             
-            -- 第三个字节：取 v3 的低 2 位 + v4 全部 6 位
             if c4 ~= '=' then
                 local b3 = (v3 % 4) * 64 + v4
                 res = res .. string.char(b3 % 256)
@@ -85,36 +78,26 @@ end
 local function parse_ss_links(content)
     local proxies = {}
     
-    -- 逐行匹配 ss:// 协议
-    -- 格式: ss://{userinfo}@{server}:{port}#{name}
+    -- format: ss://{userinfo}@{server}:{port}#{name}
     for line in content:gmatch("ss://%S+") do
-        -- 使用模式匹配提取各个部分
-        -- ^ss://           匹配开头
-        -- ([^@]+)          匹配 @ 之前的所有内容 (userinfo)
-        -- @                分隔符
-        -- ([^:]+)          匹配 : 之前的内容 (server)
-        -- :                分隔符
-        -- ([^#%s]+)        匹配 # 或空格之前的内容 (port)
-        -- #?               可选的 #
-        -- (.*)             匹配剩下的所有内容 (name)
         local userinfo_b64, server, port, name_encoded = line:match("^ss://([^@]+)@([^:]+):([^#%s]+)#?(.*)")
         
         if userinfo_b64 then
-            -- 解码加密信息 (通常是 method:password)
+            -- (method:password)
             local userinfo = base64_decode(userinfo_b64)
             local method, password = userinfo:match("([^:]+):(.*)")
             
-            -- 解码节点名称
             local name = url_decode(name_encoded or "")
-            
-            table.insert(proxies, {
-                method = method,
-                password = password,
-                server = server,
-                port = port,
-                name = name,
-                raw = line -- 保留原始链接供参考
-            })
+            if not string.find(name, "香港") then
+                table.insert(proxies, {
+                    method = method,
+                    password = password,
+                    server = server,
+                    port = port,
+                    name = name,
+                    raw = line
+                })
+            end
         end
     end
     
