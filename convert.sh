@@ -3,7 +3,7 @@
 # Compatible: Windows (Git Bash/WSL) | Linux | macOS
 # Usage: bash convert.sh
 
-# ===================== 自定义配置（修改这里）=====================
+# ===================== configuration =====================
 SUBSCRIBE_URL="https://dingyue.site/s/04c43a8c922c4431e357ae559ae62d6d"
 LUA_SCRIPT_PATH="./convert.lua"
 OUTPUT_YAML="./clash-config.yaml"
