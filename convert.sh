@@ -4,10 +4,11 @@
 # Usage: bash convert.sh
 
 # ===================== configuration =====================
+SCRIPT_DIR="$(dirname "$0")"
 SUBSCRIBE_URL="https://dingyue.site/s/04c43a8c922c4431e357ae559ae62d6d"
-LUA_SCRIPT_PATH="./convert.lua"
-OUTPUT_YAML="./clash-config.yaml"
-TEMP_FILE="./subscription.tmp"
+LUA_SCRIPT_PATH="$SCRIPT_DIR/convert.lua"
+OUTPUT_YAML="$SCRIPT_DIR/clash-config.yaml"
+TEMP_FILE="$SCRIPT_DIR/subscription.tmp"
 CURL_TIMEOUT=30
 # =================================================================
 
